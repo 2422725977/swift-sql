@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "swiftsql"
+version = "0.1.0"
+description = "Fast, accurate, multi-dialect lightweight Text-to-SQL with Auto-Think, self-repair, refusal, and execution-guided DPO"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "sqlglot>=25.0.0",
+    "pyyaml>=6.0.1",
+    "pydantic>=2.7.0",
+]
+
+[project.optional-dependencies]
+data = [
+    "datasets>=2.20.0",
+    "huggingface-hub>=0.24.0",
+    "tqdm>=4.66.0",
+]
+serve = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "httpx>=0.27.0",
+]
+dev = [
+    "pytest>=8.2.0",
+    "httpx>=0.27.0",
+    "fastapi>=0.115.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]

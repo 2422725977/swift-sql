@@ -1,0 +1,69 @@
+# SwiftSQL Central Configuration
+# Optimized for Colab Pro (L4 24GB / A100 40GB) training -> Apple Silicon 16GB deployment
+
+project:
+  name: "swiftsql-3b-v1"
+  seed: 42
+
+model:
+  # Default: 3B for ultra-fast latency + Q8_0 (~3.6GB) comfort + API concurrency on 16GB Mac mini
+  # Optional upgrade: "Qwen/Qwen2.5-Coder-7B-Instruct" (Q4_K_M ~4.8GB)
+  base_model: "Qwen/Qwen2.5-Coder-3B-Instruct"
+  max_seq_length: 2048
+  load_in_4bit: true
+
+lora:
+  r: 32
+  lora_alpha: 32
+  lora_dropout: 0.0
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+data:
+  # Target sample counts for V1 SFT (total ~8,500 high-signal samples)
+  gretel_train_samples: 4500
+  sqale_train_samples: 2000
+  chinese_train_samples: 2000
+  eval_samples: 400
+  max_schema_chars: 4000
+  # Multi-task mix ratios applied on top of base generation pool
+  repair_ratio: 0.20      # 20% SQL error self-repair tasks
+  refusal_ratio: 0.10     # 10% unanswerable / missing-column refusal tasks
+  # Multi-dialect distribution
+  dialect_weights:
+    postgresql: 0.40
+    mysql: 0.35
+    sqlite: 0.25
+
+sft:
+  num_train_epochs: 2
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 4
+  learning_rate: 2.0e-4
+  warmup_ratio: 0.05
+  lr_scheduler_type: "cosine"
+  logging_steps: 10
+  save_steps: 100
+  eval_steps: 100
+  bf16: true
+
+dpo:
+  # V2 Execution-Guided DPO: rewards correct + concise SQL, penalizes error/wrong/verbose
+  num_prompts: 1500
+  candidates_per_prompt: 4
+  beta: 0.1
+  learning_rate: 5.0e-5
+  num_train_epochs: 1
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 8
+
+export:
+  quantizations:
+    - "q8_0"     # ~3.6GB for 3B, near-lossless accuracy on 16GB Mac mini
+    - "q4_k_m"   # ~2.2GB for 3B, ultra-fast high-concurrency mode
