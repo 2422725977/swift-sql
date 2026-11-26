@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Set, Tuple
 
 import sqlglot
 from sqlglot import exp
+
+logging.getLogger("sqlglot").setLevel(logging.ERROR)
 
 SUPPORTED_DIALECTS = ("sqlite", "postgresql", "mysql")
 
