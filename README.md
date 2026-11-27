@@ -8,6 +8,7 @@
 [![Open V2 Eval & DPO in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2422725977/swift-sql/blob/main/notebooks/02_eval_and_dpo.ipynb)
 [![Open V3 Optional GRPO in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2422725977/swift-sql/blob/main/notebooks/03_optional_grpo.ipynb)
 [![Publish to Hugging Face (Free CPU)](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2422725977/swift-sql/blob/main/notebooks/04_publish_to_hf.ipynb)
+[![Run Public BIRD Benchmark](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2422725977/swift-sql/blob/main/notebooks/05_public_benchmark.ipynb)
 
 ### 已发布开源权重
 * **GGUF 量化版（开箱即跑）**：[`xiain/SwiftSQL-3B-GGUF`](https://huggingface.co/xiain/SwiftSQL-3B-GGUF)（含 `SwiftSQL-3B-Q8_0.gguf` 3.1GB 与 `SwiftSQL-3B-Q4_K_M.gguf` 1.8GB）
