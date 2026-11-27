@@ -170,7 +170,7 @@ def main() -> None:
     tmp_dir.mkdir(parents=True, exist_ok=True)
 
     for repo_id, label in targets:
-        content = MODEL_CARD_TEMPLATE.format(variant_label=label)
+        content = MODEL_CARD_TEMPLATE.replace("{variant_label}", label)
         card_file = tmp_dir / f"{repo_id.replace('/', '_')}_README.md"
         card_file.write_text(content, encoding="utf-8")
         print(f"Uploading updated README.md -> https://huggingface.co/{repo_id} ...")
