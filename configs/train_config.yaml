@@ -1,21 +1,20 @@
-# SwiftSQL Central Configuration (opt2: Fast Auto-Think + Sandbox Hygiene + RPO-Stabilized DPO)
-# Optimized for Colab Pro (L4 24GB / A100 40GB) training -> Apple Silicon 16GB deployment
+# SwiftSQL Profile: 3B High-Speed Full-Precision bf16 (L4 22GB Full Utilization)
+# Optimized for: Colab Pro L4 (22GB) / A100 -> Apple Silicon 16GB (Q8_0 ~3.6GB, ultra-fast concurrency)
 
 project:
   name: "swiftsql-3b"
-  run_tag: "opt2"         # Isolates Drive outputs under MyDrive/swift-sql/opt2/ without overwriting v1
+  run_tag: "opt2"
   seed: 42
 
 model:
-  # Default: 3B for ultra-fast latency + Q8_0 (~3.6GB) comfort + API concurrency on 16GB Mac mini
-  # Optional upgrade: "Qwen/Qwen2.5-Coder-7B-Instruct" (Q4_K_M ~4.8GB)
   base_model: "Qwen/Qwen2.5-Coder-3B-Instruct"
   max_seq_length: 2048
-  load_in_4bit: true
+  # 3B fits comfortably in pure bf16 on L4 (22GB) -> zero 4-bit quantization noise + faster training!
+  load_in_4bit: false
 
 lora:
-  r: 32
-  lora_alpha: 32
+  r: 64
+  lora_alpha: 64
   lora_dropout: 0.0
   target_modules:
     - q_proj
@@ -27,17 +26,15 @@ lora:
     - down_proj
 
 data:
-  # Slightly larger Gretel pull because SQLite sandbox pre-filtering discards noisy synthetic SQL
-  gretel_train_samples: 6000
-  sqale_train_samples: 2000
-  chinese_train_samples: 2000
+  # Expanded ~18k+ sandbox-verified multi-task dataset
+  gretel_train_samples: 12000
+  sqale_train_samples: 4500
+  chinese_train_samples: 3500
   eval_samples: 450
   max_schema_chars: 4000
   verify_executable: true
-  # Multi-task mix ratios applied on top of base generation pool
-  repair_ratio: 0.20      # 20% SQL error self-repair tasks
-  refusal_ratio: 0.12     # 12% unanswerable / missing-column refusal tasks
-  # Multi-dialect distribution
+  repair_ratio: 0.20
+  refusal_ratio: 0.12
   dialect_weights:
     postgresql: 0.40
     mysql: 0.35
@@ -45,8 +42,9 @@ data:
 
 sft:
   num_train_epochs: 3
-  per_device_train_batch_size: 4
-  gradient_accumulation_steps: 4
+  per_device_train_batch_size: 8
+  gradient_accumulation_steps: 2
+  packing: true
   learning_rate: 1.5e-4
   warmup_ratio: 0.05
   lr_scheduler_type: "cosine"
@@ -56,20 +54,20 @@ sft:
   bf16: true
 
 dpo:
-  # RPO-stabilized Iterative Execution-Guided DPO (prevents syntax/refusal collapse!)
+  # RPO-stabilized Iterative Execution-Guided DPO (high-utilization L4 batches)
   rounds: 2
   eval_samples: 300
-  eval_batch_size: 16
-  sample_batch_size: 8
-  num_prompts_per_round: 1200
+  eval_batch_size: 32
+  sample_batch_size: 12
+  num_prompts_per_round: 1400
   candidates_per_round: [4, 6]
   round_learning_rates: [1.0e-5, 5.0e-6]
   round_betas: [0.20, 0.25]
-  rpo_alpha: 0.5          # Anchors DPO with SFT NLL loss on chosen outputs to prevent collapse
+  rpo_alpha: 0.5
   max_grad_norm: 0.5
-  num_train_epochs: 1     # 1 epoch per round on fresh on-policy pairs prevents overfitting
-  per_device_train_batch_size: 2
-  gradient_accumulation_steps: 8
+  num_train_epochs: 1
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 4
 
 export:
   quantizations:

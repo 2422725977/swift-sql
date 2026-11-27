@@ -1,0 +1,75 @@
+# SwiftSQL Profile: 7B High-Accuracy Ceiling (Dual-Run Companion Profile)
+# Optimized for: Colab Pro L4 (22GB) / A100 (40GB) -> Apple Silicon 16GB (Q4_K_M ~4.7GB / Q5_K_M ~5.4GB)
+
+project:
+  name: "swiftsql-7b"
+  run_tag: "opt2_7b"      # Fully isolated in MyDrive/swift-sql/opt2_7b/ so you can dual-run alongside 3B!
+  seed: 42
+
+model:
+  base_model: "Qwen/Qwen2.5-Coder-7B-Instruct"
+  max_seq_length: 2048
+  # 4-bit QLoRA keeps 7B safely inside L4 22GB VRAM even with packing & DPO
+  load_in_4bit: true
+
+lora:
+  r: 64
+  lora_alpha: 64
+  lora_dropout: 0.0
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+data:
+  # Same ~18k+ sandbox-verified dataset mix for apples-to-apples 3B vs 7B comparison
+  gretel_train_samples: 12000
+  sqale_train_samples: 4500
+  chinese_train_samples: 3500
+  eval_samples: 450
+  max_schema_chars: 4000
+  verify_executable: true
+  repair_ratio: 0.20
+  refusal_ratio: 0.12
+  dialect_weights:
+    postgresql: 0.40
+    mysql: 0.35
+    sqlite: 0.25
+
+sft:
+  num_train_epochs: 3
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 4
+  packing: true
+  learning_rate: 1.0e-4   # Slightly gentler LR for 7B stability
+  warmup_ratio: 0.05
+  lr_scheduler_type: "cosine"
+  logging_steps: 10
+  save_steps: 100
+  eval_steps: 100
+  bf16: true
+
+dpo:
+  # RPO-stabilized Iterative Execution-Guided DPO tuned for 7B on L4 22GB
+  rounds: 2
+  eval_samples: 300
+  eval_batch_size: 16
+  sample_batch_size: 6
+  num_prompts_per_round: 1400
+  candidates_per_round: [4, 6]
+  round_learning_rates: [8.0e-6, 4.0e-6]
+  round_betas: [0.20, 0.25]
+  rpo_alpha: 0.5
+  max_grad_norm: 0.5
+  num_train_epochs: 1
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 8
+
+export:
+  quantizations:
+    - "q4_k_m"   # ~4.7GB for 7B, comfortable sweet spot on 16GB Mac mini
+    - "q5_k_m"   # ~5.4GB for 7B, higher precision option on 16GB Mac mini
