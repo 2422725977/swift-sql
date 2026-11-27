@@ -2,10 +2,16 @@
 
 **SwiftSQL** 是一个面向 **Apple Silicon 16GB 统一内存（如 Mac mini）本地部署与 API 分发** 的轻量级、高准确率、极速 **Text-to-SQL** 专用模型训练与服务框架，支持在 **Google Colab Pro（L4 / A100）** 一键复现。
 
+[![Hugging Face GGUF](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-SwiftSQL--3B--GGUF-yellow)](https://huggingface.co/xiain/SwiftSQL-3B-GGUF)
+[![Hugging Face LoRA](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-SwiftSQL--3B--LoRA-blue)](https://huggingface.co/xiain/SwiftSQL-3B-LoRA)
 [![Open V1 SFT in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2422725977/swift-sql/blob/main/notebooks/01_data_prep_and_sft.ipynb)
 [![Open V2 Eval & DPO in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2422725977/swift-sql/blob/main/notebooks/02_eval_and_dpo.ipynb)
 [![Open V3 Optional GRPO in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2422725977/swift-sql/blob/main/notebooks/03_optional_grpo.ipynb)
 [![Publish to Hugging Face (Free CPU)](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2422725977/swift-sql/blob/main/notebooks/04_publish_to_hf.ipynb)
+
+### 已发布开源权重
+* **GGUF 量化版（开箱即跑）**：[`xiain/SwiftSQL-3B-GGUF`](https://huggingface.co/xiain/SwiftSQL-3B-GGUF)（含 `SwiftSQL-3B-Q8_0.gguf` 3.1GB 与 `SwiftSQL-3B-Q4_K_M.gguf` 1.8GB）
+* **LoRA 适配器（供二次微调）**：[`xiain/SwiftSQL-3B-LoRA`](https://huggingface.co/xiain/SwiftSQL-3B-LoRA)
 
 ---
 
@@ -83,18 +89,22 @@ swift-sql/
 
 ### 2. 在 Mac mini (16GB) 本地部署并分发 API
 
-#### 启动本地推理引擎（二选一）
-**方式 A：Ollama（最简单）**
+#### 启动本地推理引擎（二选一，直接从 Hugging Face 拉取）
+**方式 A：Ollama（一行命令最省事）**
 ```bash
-# 把从 Google Drive 下载的 GGUF 放到 serve/ 目录
-ollama create swiftsql-3b -f serve/Modelfile.template
+# 近无损 Q8_0（3.1GB，推荐 16GB Mac mini）
+ollama run hf.co/xiain/SwiftSQL-3B-GGUF:Q8_0
+
+# 极致省空间/高并发 Q4_K_M（1.8GB）
+ollama run hf.co/xiain/SwiftSQL-3B-GGUF:Q4_K_M
 ```
 
-**方式 B：llama.cpp（并发吞吐更高）**
+**方式 B：llama.cpp（并发吞吐更高、单文件不重复占磁盘）**
 ```bash
 brew install llama.cpp
-llama-server -m ./swiftsql-3b-v2-q8_0.gguf \
+llama-server -hf xiain/SwiftSQL-3B-GGUF:Q8_0 \
   --port 11434 --ctx-size 4096 --parallel 4 --flash-attn
+# 若磁盘紧张可换成 :Q4_K_M（仅 1.8GB）
 ```
 
 #### 启动带护栏与自修复的 API 网关
