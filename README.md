@@ -1,125 +1,120 @@
-# SwiftSQL
+<div align="center">
 
-**SwiftSQL** 是一个面向 **Apple Silicon 16GB 统一内存（如 Mac mini）本地部署与 API 分发** 的轻量级、高准确率、极速 **Text-to-SQL** 专用模型训练与服务框架，支持在 **Google Colab Pro（L4 / A100）** 一键复现。
+# ⚡ SwiftSQL
 
-[![Hugging Face GGUF](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-SwiftSQL--3B--GGUF-yellow)](https://huggingface.co/xiain/SwiftSQL-3B-GGUF)
-[![Hugging Face LoRA](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-SwiftSQL--3B--LoRA-blue)](https://huggingface.co/xiain/SwiftSQL-3B-LoRA)
-[![Open V1 SFT in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2422725977/swift-sql/blob/main/notebooks/01_data_prep_and_sft.ipynb)
-[![Open V2 Eval & DPO in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2422725977/swift-sql/blob/main/notebooks/02_eval_and_dpo.ipynb)
-[![Open V3 Optional GRPO in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2422725977/swift-sql/blob/main/notebooks/03_optional_grpo.ipynb)
-[![Publish to Hugging Face (Free CPU)](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2422725977/swift-sql/blob/main/notebooks/04_publish_to_hf.ipynb)
-[![Run Public BIRD Benchmark](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2422725977/swift-sql/blob/main/notebooks/05_public_benchmark.ipynb)
+**Fast, Accurate, Bilingual & Multi-Dialect Lightweight Text-to-SQL**  
+*Built for 16GB Apple Silicon (Mac mini / MacBook) local serving & production API distribution*
 
-### 已发布开源权重
-* **GGUF 量化版（开箱即跑）**：[`xiain/SwiftSQL-3B-GGUF`](https://huggingface.co/xiain/SwiftSQL-3B-GGUF)（含 `SwiftSQL-3B-Q8_0.gguf` 3.1GB 与 `SwiftSQL-3B-Q4_K_M.gguf` 1.8GB）
-* **LoRA 适配器（供二次微调）**：[`xiain/SwiftSQL-3B-LoRA`](https://huggingface.co/xiain/SwiftSQL-3B-LoRA)
+[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
+[![Base Model](https://img.shields.io/badge/Base-Qwen2.5--Coder--3B%2F7B-purple)](https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct)
+[![Hugging Face GGUF](https://img.shields.io/badge/%F0%9F%A4%97%20Model-SwiftSQL--3B--GGUF-yellow)](https://huggingface.co/xiain/SwiftSQL-3B-GGUF)
+[![Hugging Face LoRA](https://img.shields.io/badge/%F0%9F%A4%97%20Adapter-SwiftSQL--3B--LoRA-blue)](https://huggingface.co/xiain/SwiftSQL-3B-LoRA)
+
+[![Open V1 SFT](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2422725977/swift-sql/blob/main/notebooks/01_data_prep_and_sft.ipynb)
+[![Open V2 RPO-DPO](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2422725977/swift-sql/blob/main/notebooks/02_eval_and_dpo.ipynb)
+[![Run Public Benchmark](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2422725977/swift-sql/blob/main/notebooks/05_public_benchmark.ipynb)
+[![Publish to HF (Free CPU)](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2422725977/swift-sql/blob/main/notebooks/04_publish_to_hf.ipynb)
+
+</div>
 
 ---
 
-## 实测成绩（SwiftSQL-3B `opt2`，300 题多方言 + 拒答独立验证集）
+## ✨ Why SwiftSQL? / 核心优势
 
-| 指标 | Base 3B | V1 SFT（沙箱去脏） | V2 R1（RPO-DPO） | **V2 R2（导出冠军）** | **Best + 1次自修复** | 相对 Base 提升 |
+Most open-source lightweight Text-to-SQL models either burn hundreds of slow `<think>` tokens on trivial queries, default to SQLite-only syntax, require custom schema converters, or blindly hallucinate non-existent columns when a database cannot answer a question.
+
+**SwiftSQL** solves these production pain points end-to-end (training data → RPO-stabilized DPO → FastAPI guardrail gateway):
+
+| Pillar | What SwiftSQL Delivers | Verified Evidence |
+| :--- | :--- | :--- |
+| **🎯 High Execution Accuracy** | SQLite-sandbox-cleaned training + **RPO-stabilized Iterative Execution-Guided DPO** (`rpo_alpha=0.5`) | **70.15% EX** (+10.73% over Base 3B's 59.42%) |
+| **🛡️ Anti-Hallucination Refusal** | Explicitly returns `"answerable": false` + missing columns instead of fabricating fake fields | **98.77% Refusal F1** vs Base-3B `67.69%`, XiYanSQL-3B `9.52%`, Arctic-R1-7B `0.00%` |
+| **⚡ Low Latency & High Throughput** | **Auto-Think** skips planning on simple/1-JOIN queries and caps complex plans to `<= 60` chars | **5.7× fewer tokens**, **4.6× lower latency**, **13.8× higher throughput** than Arctic-R1-7B |
+| **🌍 Multi-Dialect + EN/ZH** | Accepts standard `CREATE TABLE` DDL directly; explicitly targets `postgresql`, `mysql`, or `sqlite` | **100% strict JSON** compliance, zero markdown filler |
+| **🔧 Single-Model Generate + Repair** | Native `repair_sql` mode paired with `<2ms` `sqlglot` read-only safety guardrail in FastAPI | Automatic 1-shot syntax/execution self-healing in API gateway |
+| **💻 16GB Apple Silicon Ready** | Compact GGUF (`Q8_0` 3.06 GB / `Q4_K_M` 1.80 GB) leaves ample unified memory for macOS + concurrency | Runs smoothly via `ollama` or `llama-server` on Mac mini 16GB |
+
+---
+
+## 📦 Model Zoo / 开源权重
+
+| Model | Quant / Format | File Size | Recommended Use | SHA-256 (LFS Verified) | Download |
+| :--- | :---: | :---: | :--- | :--- | :---: |
+| **SwiftSQL-3B** | `Q8_0` (GGUF) | 3.06 GB | Near-lossless precision on 16GB Apple Silicon | `dc109bac…dabec` | [🤗 HF Hub](https://huggingface.co/xiain/SwiftSQL-3B-GGUF) |
+| **SwiftSQL-3B** | `Q4_K_M` (GGUF) | 1.80 GB | Ultra-fast, minimal disk & high API concurrency | `cdb70d92…6641` | [🤗 HF Hub](https://huggingface.co/xiain/SwiftSQL-3B-GGUF) |
+| **SwiftSQL-3B-LoRA** | `safetensors` | 228 MB | LoRA adapter (`r=64`) for merging / further tuning | `dc635d96…65a7` | [🤗 HF Hub](https://huggingface.co/xiain/SwiftSQL-3B-LoRA) |
+| **SwiftSQL-7B** | `Q4_K_M` / `Q5_K_M` | ~4.7 GB | Higher accuracy ceiling (`PROFILE="7b"` ready) | *Training via `opt2_7b`* | [Config](configs/train_config_7b.yaml) |
+
+---
+
+## 📊 Benchmarks / 实测评测
+
+### 1. Held-Out Multi-Dialect & Refusal Progression (`SwiftSQL-3B opt2`, 300 Samples)
+
+Evaluated on held-out multi-dialect queries (`postgresql` / `mysql` / `sqlite`) executed in an isolated in-memory SQLite sandbox plus missing-column refusal tests:
+
+| Metric | Base-3B | V1 SFT *(Sandbox-Cleaned)* | V2 R1 *(RPO-DPO)* | **V2 R2 *(Exported)*** | **Best + 1-Shot Repair** | Δ vs Base |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **执行准确率 (EX)** | 59.42% | 67.63% | 71.28% | **69.15%** | **70.15%** | **+10.73%** |
-| **防幻觉拒答 (Refusal F1)** | 0.00% | 80.00% | 67.35% | **90.41%** | **90.41%** | **+90.41%** |
-| **严格 JSON 合规率** | 100% | 100% | 100% | **100%** | **100%** | 零废话 |
-| **多方言语法合规率** | 99.63% | 100% | 88.01% | **97.38%** | **97.38%** | 稳健无塌缩 |
-| **平均输出字符** | 177.9 | 222.3 | 210.5 | **216.6** | **217.3** | 极简规划低延迟 |
+| **Execution Accuracy (EX)** | 59.42% | 67.63% | 71.28% | **69.15%** | **70.15%** | **+10.73%** |
+| **Refusal F1 (Anti-Hallucination)** | 0.00% | 80.00% | 67.35% | **90.41%** | **90.41%** | **+90.41%** |
+| **Strict JSON Compliance** | 100.0% | 100.0% | 100.0% | **100.0%** | **100.0%** | — |
+| **Multi-Dialect Syntax Valid** | 99.63% | 100.0% | 88.01% | **97.38%** | **97.38%** | — |
+| **Avg Output Length (chars)** | 177.9 | 222.3 | 210.5 | **216.6** | **217.3** | Compact |
 
 ---
 
-## 核心差异化突破
+### 2. Head-to-Head Public Benchmark (`BIRD Mini-Dev 2026` + Fair Missing-Column Refusal)
 
-针对当前开源轻量 Text-to-SQL 模型（Arctic-Text2SQL-R1、OmniSQL、XiYanSQL 等）的常见痛点，SwiftSQL 从训练数据、后训练目标到 API 护栏做了全链路优化：
+Reproducible via [`notebooks/05_public_benchmark.ipynb`](notebooks/05_public_benchmark.ipynb) on a single NVIDIA L4 GPU (22GB). All competitors receive standard SQL prompts (with `<think>` blocks cleanly stripped) and are explicitly instructed to reply `CANNOT_ANSWER` when schema columns are missing:
 
-1. **Auto-Think 自适应短推理（又快又准）**
-   * 简单单表查询跳过思维链（`"plan": ""`），极速直出；
-   * 复杂多表 JOIN / 子查询 / CTE / 窗口函数仅输出 **1 句精简表字段规划** 再生成 SQL，兼顾推理准确率与极低端到端延迟。
-2. **中英双语 + 多方言显式切换（PostgreSQL / MySQL / SQLite）**
-   * 基于 `sqlglot` 自动将开源语料转译并校验为三方言对齐样本，直接接收标准 `CREATE TABLE` DDL，无需改造业务 Schema 格式。
-3. **单模型三合一能力：生成 + 报错自修复 + 防幻觉拒答**
-   * 70% 标准生成 + 20% SQL 报错自修复（`repair_sql`）+ 10% 缺列不可回答拒答（`answerable: false`），大幅减少胡编列名。
-4. **执行引导 DPO（V2）+ 轻量 API 确定性护栏（V3）**
-   * 利用真实 SQLite 沙箱执行结果筛选 **“对且短” vs “错或啰嗦”** 偏好对做 DPO 对齐；
-   * Mac mini 推理前挂 FastAPI + `sqlglot`（<2ms），实现 **只读安全拦截 + 语法预检 + 报错自动触发 1 次模型自修复 + API Key 鉴权与限流**。
+| Benchmark Metric | **SwiftSQL-3B** | **SwiftSQL-3B+Repair** | Base-3B | XiYanSQL-3B | Arctic-R1-7B |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Refusal F1 (Missing-Column Stress)** | **98.77%** 🏆 | **98.77%** 🏆 | 67.69% | 9.52% | 0.00% |
+| **BIRD Mini-Dev SQLite EX\*** | **4.32%** *(1st in 3B)* | **4.32%** *(1st in 3B)* | 3.09% | 3.70% | 8.02% *(7B)* |
+| **BIRD PG / MySQL Syntax\*** | 83.50% | 83.50% | **98.00%** | 96.50% | 92.50% |
+| **Avg Output Tokens** *(lower is faster)* | **98.9** | **98.9** | 81.5 | 74.0 | 566.3 *(5.7×)* |
+| **Single-Request Latency (ms, L4 PyTorch)** | **2,981.7** | **2,981.7** | 2,364.5 | 2,068.4 | 13,694.1 *(4.6× slower)* |
+| **Batch Throughput (QPS, L4)** | **1.10** | **1.10** | 1.48 | 1.53 | 0.08 *(13.8× lower)* |
 
----
-
-## Colab Pro（200 积分）省算力指南
-
-| 运行时 | 显存 | 约耗积分/小时 | 推荐用途 |
-| :--- | :--- | :--- | :--- |
-| **L4 GPU（强烈推荐）** | 24GB | ~2 CU/h | 跑完 V1 SFT + V2 评测/DPO 仅耗 ~3–5 积分，200 积分可迭代几十轮 |
-| **A100 GPU** | 40GB / 80GB | ~7–13 CU/h | 需要训练 7B 模型或大步数 GRPO 时再切 A100 |
-
-默认基座为 **`Qwen/Qwen2.5-Coder-3B-Instruct`**（可在 `configs/train_config.yaml` 或 Notebook 第一行一键切换为 `7B`）：
-* **3B `Q8_0` 量化** 在 Mac mini 16GB 仅占 **~3.6GB**（几乎无损，推理极快、支持多并发 API）；
-* **3B `Q4_K_M` 量化** 仅占 **~2.2GB**。
+> **\*Transparent Evaluation Protocol Note:** To benchmark all 3B/7B models under identical short-context constraints (`MAX_SCHEMA_CHARS=5500`, `max_length=2560`), large BIRD enterprise DDL schemas (which often exceed 15,000–35,000 chars with inline comments and examples) were truncated at 5,500 chars. Because target tables were truncated away on many tasks, absolute `BIRD_SQLite_EX` scores are compressed across **all** models (including 7B Arctic-R1 at 8.02%). On those truncated schemas, `SwiftSQL-3B`'s strict anti-hallucination behavior intentionally abstained (`"answerable": false`, empty SQL), which also accounts for the lower raw `BIRD_PG_MySQL_Syntax` percentage while still outperforming `Base-3B` and `XiYanSQL-3B` on executable BIRD tasks.
 
 ---
 
-## 项目结构
+## 🚀 Quick Start / 30 秒本地运行与 API 分发
 
-```text
-swift-sql/
-├── configs/train_config.yaml         # 模型、数据配比、LoRA/SFT/DPO/导出配置
-├── src/swiftsql/
-│   ├── dialect.py                    # sqlglot 多方言转译、只读护栏、复杂度分级、删列变异
-│   ├── prompts.py                    # 统一 ChatML 提示词与严格 JSON 解析
-│   ├── data_pipeline.py              # 公开数据集拉取 + Auto-Think / 多方言 / 修复 / 拒答合成
-│   ├── evaluation.py                 # 真实 SQLite 沙箱执行准确率(EX) / 语法率 / 拒答 F1 评测
-│   └── dpo_builder.py                # 执行引导 DPO 偏好对自动构建
-├── notebooks/
-│   ├── 01_data_prep_and_sft.ipynb    # V1: 数据构建 + Unsloth SFT + 导出 GGUF
-│   ├── 02_eval_and_dpo.ipynb         # V2: 基准对比评测 + 执行引导 DPO + 导出 GGUF
-│   └── 03_optional_grpo.ipynb        # V3(可选): 在线执行奖励 GRPO 进阶实验
-├── serve/
-│   ├── Modelfile.template            # Ollama 导入模板
-│   └── api_gateway.py                # Mac mini 轻量 FastAPI 网关（鉴权+限流+护栏+自动修复）
-└── tests/                            # 本地自动化单元测试
-```
-
----
-
-## 快速开始
-
-### 1. 在 Colab Pro 上训练（推荐直接点击顶部徽章）
-1. 打开 `notebooks/01_data_prep_and_sft.ipynb`，选择 **L4 GPU** 运行时；
-2. 依次运行：挂载 Google Drive → 自动拉取公开数据集并合成 V1 语料 → Unsloth QLoRA 微调 → 自动导出 `q8_0` / `q4_k_m` GGUF 到 Google Drive；
-3. 打开 `notebooks/02_eval_and_dpo.ipynb`，自动对比 **基座 3B vs V1 SFT**，生成执行验证偏好对并跑完 **V2 DPO**，再次评测验证提升。
-
-### 2. 在 Mac mini (16GB) 本地部署并分发 API
-
-#### 启动本地推理引擎（二选一，直接从 Hugging Face 拉取）
-**方式 A：Ollama（一行命令最省事）**
+### Option 1: Ollama (1 Command)
 ```bash
-# 近无损 Q8_0（3.1GB，推荐 16GB Mac mini）
+# Near-lossless Q8_0 (3.06 GB, recommended for 16GB Mac mini)
 ollama run hf.co/xiain/SwiftSQL-3B-GGUF:Q8_0
 
-# 极致省空间/高并发 Q4_K_M（1.8GB）
+# Minimal footprint / highest concurrency Q4_K_M (1.80 GB)
 ollama run hf.co/xiain/SwiftSQL-3B-GGUF:Q4_K_M
 ```
 
-**方式 B：llama.cpp（并发吞吐更高、单文件不重复占磁盘）**
+### Option 2: `llama.cpp` High-Concurrency Server (Apple Silicon Metal)
 ```bash
 brew install llama.cpp
 llama-server -hf xiain/SwiftSQL-3B-GGUF:Q8_0 \
   --port 11434 --ctx-size 4096 --parallel 4 --flash-attn
-# 若磁盘紧张可换成 :Q4_K_M（仅 1.8GB）
+# Use :Q4_K_M if local disk space is tight (only 1.80 GB, single file)
 ```
 
-#### 启动带护栏与自修复的 API 网关
+### Option 3: Production FastAPI Gateway (Auth + Rate Limit + Read-Only Guardrail + Auto-Repair)
 ```bash
+git clone https://github.com/2422725977/swift-sql.git && cd swift-sql
+uv venv && source .venv/bin/activate
 uv pip install -e ".[serve]"
+
 export SWIFTSQL_API_KEYS="sk-my-secret-key-1,sk-my-secret-key-2"
 export SWIFTSQL_BACKEND_URL="http://127.0.0.1:11434/v1/chat/completions"
-export SWIFTSQL_MODEL_NAME="swiftsql-3b"
+export SWIFTSQL_MODEL_NAME="SwiftSQL-3B-Q8_0"
+
 uvicorn serve.api_gateway:app --host 0.0.0.0 --port 8000
 ```
 
-#### 调用示例
+#### Example 1 — Bilingual PostgreSQL Query
 ```bash
-curl -X POST http://127.0.0.1:8000/v1/text2sql \
+curl -s http://127.0.0.1:8000/v1/text2sql \
   -H "Authorization: Bearer sk-my-secret-key-1" \
   -H "Content-Type: application/json" \
   -d '{
@@ -129,17 +124,149 @@ curl -X POST http://127.0.0.1:8000/v1/text2sql \
     "question": "统计每个用户的已完成订单总金额，按总金额降序取前 10 名"
   }'
 ```
+```json
+{
+  "answerable": true,
+  "dialect": "postgresql",
+  "sql": "SELECT user_id, SUM(amount) AS total_amount FROM orders WHERE status = 'completed' GROUP BY user_id ORDER BY total_amount DESC LIMIT 10",
+  "plan": "",
+  "tables": ["orders"],
+  "repaired": false,
+  "syntax_valid": true
+}
+```
 
-#### 对外安全分发（无需公网 IP）
-* 公网 HTTPS 分发：`cloudflared tunnel --url http://127.0.0.1:8000`
-* 内部私网访问：通过 Tailscale 暴露局域网地址即可。
+#### Example 2 — Automatic Anti-Hallucination Refusal
+```bash
+curl -s http://127.0.0.1:8000/v1/text2sql \
+  -H "Authorization: Bearer sk-my-secret-key-1" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dialect": "mysql",
+    "schema": "CREATE TABLE users (id INT, name TEXT, city TEXT);",
+    "question": "查询所有北京用户的手机号"
+  }'
+```
+```json
+{
+  "answerable": false,
+  "dialect": "mysql",
+  "sql": "",
+  "missing": ["phone"],
+  "note": "提供的表结构中缺少回答该问题所需的字段：phone。",
+  "syntax_valid": true
+}
+```
+
+#### Expose Your Mac mini API Securely (Zero Public IP Needed)
+* **Public HTTPS**: `cloudflared tunnel --url http://127.0.0.1:8000`
+* **Private Team Mesh**: Serve directly over [Tailscale](https://tailscale.com/).
 
 ---
 
-## 本地运行测试
+## 🧩 Prompt Protocol / 提示词格式
+
+When calling the raw GGUF/LoRA model directly (without `serve/api_gateway.py`), use the exact system prompt defined in [`src/swiftsql/prompts.py`](src/swiftsql/prompts.py):
+
+<details>
+<summary><b>Click to expand System / Generation / Repair Prompt Templates</b></summary>
+
+**System Prompt**
+```text
+You are SwiftSQL, a fast and accurate multi-dialect Text-to-SQL engine.
+Rules:
+1. Respond ONLY with a single valid JSON object. No markdown fences or extra text.
+2. Follow the requested SQL dialect strictly (postgresql, mysql, or sqlite) and output read-only SELECT queries only.
+3. Auto-Think: leave "plan" empty ("") for simple and single-JOIN queries; only for complex multi-JOIN, subquery, CTE, HAVING, or window queries, write an ultra-brief plan (<= 60 chars) in "plan" before "sql".
+4. Never invent tables or columns. If the schema lacks required information to answer the question, set "answerable": false, "sql": "", and list missing fields in "missing".
+```
+
+**User Prompt — Generation (`generate_sql`)**
+```text
+Task: generate_sql
+Dialect: postgresql
+Mode: auto
+Schema:
+<CREATE TABLE DDL>
+
+Question:
+<Natural Language Question>
+```
+
+**User Prompt — 1-Shot Self-Repair (`repair_sql`)**
+```text
+Task: repair_sql
+Dialect: postgresql
+Schema:
+<CREATE TABLE DDL>
+
+Question:
+<Natural Language Question>
+
+Failed SQL:
+<Broken SQL>
+
+Error:
+<Syntax or Database Error Message>
+```
+
+</details>
+
+---
+
+## 🛠️ Training Pipeline & Reproducibility (Colab Pro)
+
+```mermaid
+flowchart LR
+    A["Open HF Datasets<br/>Gretel + SQaLe + DuSQL"] --> B["SQLite Sandbox Filter<br/>+ Multi-Dialect / Repair / Refusal"]
+    B --> C["V1 SFT (Unsloth)<br/>Auto-Think <=60c Plan"]
+    C --> D["V2 Iterative RPO-DPO<br/>Real SQLite Sandbox Scoring"]
+    D --> E["Auto Best Selector<br/>+ Q8_0 / Q4_K_M GGUF"]
+    E --> F["Mac mini 16GB Serving<br/>llama-server + FastAPI Guardrail"]
+```
+
+| Notebook | Purpose | Recommended Runtime | Typical Budget |
+| :--- | :--- | :--- | :--- |
+| [`01_data_prep_and_sft.ipynb`](notebooks/01_data_prep_and_sft.ipynb) | Sandbox-verified dataset build + Unsloth SFT (`PROFILE="3b"` or `"7b"`) | Colab Pro **L4 (24GB)** | ~1.5 CU |
+| [`02_eval_and_dpo.ipynb`](notebooks/02_eval_and_dpo.ipynb) | Batched eval + 2-round RPO-stabilized Execution DPO + `Best+Repair` + GGUF export | Colab Pro **L4 (24GB)** | ~2.0 CU |
+| [`03_optional_grpo.ipynb`](notebooks/03_optional_grpo.ipynb) | Optional online execution-reward GRPO on curated hard multi-table queries | Colab Pro **L4 / A100** | ~2–4 CU |
+| [`04_publish_to_hf.ipynb`](notebooks/04_publish_to_hf.ipynb) | Publish GGUF & LoRA directly from Google Drive to Hugging Face Hub | **Free CPU** | **0 CU** |
+| [`05_public_benchmark.ipynb`](notebooks/05_public_benchmark.ipynb) | Head-to-head BIRD Mini-Dev (SQLite/PG/MySQL) + Refusal benchmark vs competitors | Colab Pro **L4 (24GB)** | ~1.0 CU |
+
+---
+
+## 📁 Repository Layout
+
+```text
+swift-sql/
+├── configs/
+│   ├── train_config.yaml             # 3B high-speed bf16 profile (opt2, ~18k data)
+│   └── train_config_7b.yaml          # 7B high-accuracy QLoRA profile (opt2_7b)
+├── src/swiftsql/
+│   ├── dialect.py                    # sqlglot multi-dialect transpiler, read-only guard, Auto-Think scorer
+│   ├── prompts.py                    # Unified ChatML prompts & resilient JSON parser
+│   ├── data_pipeline.py              # HF dataset loader, SQLite sandbox hygiene, repair/refusal synthesis
+│   ├── evaluation.py                 # Isolated SQLite sandbox EX / syntax / refusal F1 evaluator
+│   └── dpo_builder.py                # Offline execution-guided DPO preference pair builder
+├── notebooks/                        # End-to-end Colab Pro training, eval, benchmark & HF publish notebooks
+├── serve/
+│   ├── Modelfile.template            # Ollama Modelfile template
+│   └── api_gateway.py                # FastAPI gateway (API key auth, rate limit, sqlglot guard, 1-shot repair)
+└── tests/                            # Local pytest unit & integration tests (14/14 passing)
+```
+
+---
+
+## ✅ Local Tests
 
 ```bash
 uv venv && source .venv/bin/activate
 uv pip install -e ".[dev]"
 pytest -v
 ```
+
+## ⚠️ Limitations & License
+
+* **Schema Context Window**: Trained with `max_seq_length=2048` (`max_schema_chars=4000`). For enterprise databases with dozens of tables, pair SwiftSQL with lightweight table pre-filtering before invoking generation.
+* **Security**: Always enforce database-level read-only roles in addition to the gateway's `sqlglot` static read-only check.
+* **License**: Released under **Apache 2.0** (built on `Qwen2.5-Coder` and open datasets: `gretelai/synthetic_text_to_sql`, `trl-lab/SQaLe-text-to-SQL-dataset`, `jtjt520j/CSpider_and_DUSQL_sql_create_context`).
