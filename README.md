@@ -5,6 +5,19 @@
 [![Open V1 SFT in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2422725977/swift-sql/blob/main/notebooks/01_data_prep_and_sft.ipynb)
 [![Open V2 Eval & DPO in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2422725977/swift-sql/blob/main/notebooks/02_eval_and_dpo.ipynb)
 [![Open V3 Optional GRPO in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2422725977/swift-sql/blob/main/notebooks/03_optional_grpo.ipynb)
+[![Publish to Hugging Face (Free CPU)](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/2422725977/swift-sql/blob/main/notebooks/04_publish_to_hf.ipynb)
+
+---
+
+## 实测成绩（SwiftSQL-3B `opt2`，300 题多方言 + 拒答独立验证集）
+
+| 指标 | Base 3B | V1 SFT（沙箱去脏） | V2 R1（RPO-DPO） | **V2 R2（导出冠军）** | **Best + 1次自修复** | 相对 Base 提升 |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **执行准确率 (EX)** | 59.42% | 67.63% | 71.28% | **69.15%** | **70.15%** | **+10.73%** |
+| **防幻觉拒答 (Refusal F1)** | 0.00% | 80.00% | 67.35% | **90.41%** | **90.41%** | **+90.41%** |
+| **严格 JSON 合规率** | 100% | 100% | 100% | **100%** | **100%** | 零废话 |
+| **多方言语法合规率** | 99.63% | 100% | 88.01% | **97.38%** | **97.38%** | 稳健无塌缩 |
+| **平均输出字符** | 177.9 | 222.3 | 210.5 | **216.6** | **217.3** | 极简规划低延迟 |
 
 ---
 
