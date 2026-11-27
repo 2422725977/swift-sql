@@ -195,7 +195,8 @@ def analyze_complexity(sql: str, dialect: str = "sqlite") -> Tuple[str, bool, Li
     if score == 0 and len(tables) <= 1:
         return ("simple", False, tables)
     if score <= 2:
-        return ("medium", True, tables)
+        # Fast Auto-Think: simple 1-JOIN queries skip plan for lower latency
+        return ("medium", False, tables)
     return ("complex", True, tables)
 
 

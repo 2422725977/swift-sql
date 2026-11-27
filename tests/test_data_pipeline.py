@@ -69,12 +69,41 @@ def test_build_sft_records_contains_generate_repair_refusal():
             assert assistant_obj["answerable"] is False
             assert assistant_obj["sql"] == ""
             assert len(assistant_obj["missing"]) >= 1
-        elif rec["task_type"] == "generate" and rec["complexity"] == "simple":
-            # Auto-Think: simple single-table query must have empty plan
+        elif rec["task_type"] == "generate" and rec["complexity"] in ("simple", "medium"):
+            # Fast Auto-Think: simple & single-JOIN queries must have empty plan
             assert assistant_obj["plan"] == ""
-        elif rec["task_type"] == "generate" and rec["complexity"] in ("medium", "complex"):
-            # Auto-Think: complex query must include a concise plan
-            assert 0 < len(assistant_obj["plan"]) <= 160
+        elif rec["task_type"] == "generate" and rec["complexity"] == "complex":
+            # Auto-Think: complex query must include an ultra-compact plan (<= 60 chars)
+            assert 0 < len(assistant_obj["plan"]) <= 60
+
+
+def test_sandbox_prefilter_drops_dirty_executable_rows():
+    dirty_and_clean = [
+        RawExample(
+            schema="CREATE TABLE t (id INT, val TEXT); INSERT INTO t VALUES (1, 'a');",
+            question="Broken gold SQL referencing missing column",
+            sql="SELECT nonexistent_col FROM t",
+            source="dirty",
+            executable_context="CREATE TABLE t (id INT, val TEXT); INSERT INTO t VALUES (1, 'a');",
+        ),
+        RawExample(
+            schema="CREATE TABLE t (id INT, val TEXT); INSERT INTO t VALUES (1, 'a');",
+            question="Valid gold SQL",
+            sql="SELECT val FROM t WHERE id = 1",
+            source="clean",
+            executable_context="CREATE TABLE t (id INT, val TEXT); INSERT INTO t VALUES (1, 'a');",
+        ),
+    ]
+    records = build_sft_records(
+        dirty_and_clean,
+        dialect_weights={"sqlite": 1.0},
+        repair_ratio=0.0,
+        refusal_ratio=0.0,
+        verify_executable=True,
+        seed=42,
+    )
+    assert len(records) == 1
+    assert records[0]["source"] == "clean"
 
 
 def test_parse_model_response_robustness():

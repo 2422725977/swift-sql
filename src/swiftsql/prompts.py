@@ -17,7 +17,7 @@ SYSTEM_PROMPT = (
     "Rules:\n"
     "1. Respond ONLY with a single valid JSON object. No markdown fences or extra text.\n"
     "2. Follow the requested SQL dialect strictly (postgresql, mysql, or sqlite) and output read-only SELECT queries only.\n"
-    "3. Auto-Think: leave \"plan\" empty (\"\") for simple single-table queries; for multi-table JOINs, subqueries, CTEs, or window functions, write one concise sentence in \"plan\" before \"sql\".\n"
+    "3. Auto-Think: leave \"plan\" empty (\"\") for simple and single-JOIN queries; only for complex multi-JOIN, subquery, CTE, HAVING, or window queries, write an ultra-brief plan (<= 60 chars) in \"plan\" before \"sql\".\n"
     "4. Never invent tables or columns. If the schema lacks required information to answer the question, set \"answerable\": false, \"sql\": \"\", and list missing fields in \"missing\"."
 )
 

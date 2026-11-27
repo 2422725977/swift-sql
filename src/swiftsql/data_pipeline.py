@@ -18,6 +18,7 @@ from swiftsql.dialect import (
     transpile_sql,
     validate_sql,
 )
+from swiftsql.evaluation import execute_sqlite_sandbox
 from swiftsql.prompts import (
     build_generation_messages,
     build_repair_messages,
@@ -37,27 +38,26 @@ class RawExample:
 
 
 def compress_plan(explanation: str, tables: List[str], sql: str) -> str:
-    """Create a concise 1-sentence Auto-Think plan (<= 160 chars) for complex queries."""
-    if explanation and explanation.strip():
-        first_sentence = re.split(r"(?<=[.!?。！？])\s+", explanation.strip())[0]
-        if len(first_sentence) <= 160:
-            return first_sentence
-        return first_sentence[:157].rstrip() + "..."
-    tbl_str = ", ".join(tables) if tables else "schema tables"
-    hints = []
+    """Create an ultra-compact telegraphic Auto-Think plan (<= 60 chars) for complex queries."""
+    tbl_str = ",".join(tables[:3]) if tables else "tables"
     upper = sql.upper()
-    if "JOIN" in upper:
-        hints.append("join tables")
-    if "GROUP BY" in upper:
-        hints.append("group and aggregate")
-    if "HAVING" in upper:
-        hints.append("filter aggregates")
-    if "OVER(" in upper or "OVER (" in upper:
-        hints.append("apply window function")
+    ops: List[str] = []
     if "WITH " in upper:
-        hints.append("compute CTE")
-    action = ", ".join(hints) if hints else "query and filter"
-    return f"Use {tbl_str} to {action} according to the question."
+        ops.append("CTE")
+    if "JOIN" in upper:
+        ops.append("JOIN")
+    if "GROUP BY" in upper:
+        ops.append("GROUP")
+    if "HAVING" in upper:
+        ops.append("HAVING")
+    if "OVER(" in upper or "OVER (" in upper:
+        ops.append("WINDOW")
+    if "UNION" in upper:
+        ops.append("UNION")
+    if not ops:
+        ops.append("SUBQUERY")
+    plan = f"{tbl_str}: {'+'.join(ops[:3])}"
+    return plan[:60]
 
 
 def pick_dialect(rng: random.Random, dialect_weights: Dict[str, float]) -> str:
@@ -185,9 +185,14 @@ def build_sft_records(
     repair_ratio: float = 0.20,
     refusal_ratio: float = 0.10,
     max_schema_chars: int = 4000,
+    verify_executable: bool = True,
     seed: int = 42,
 ) -> List[Dict[str, Any]]:
-    """Transform raw examples into SwiftSQL's unified multi-task SFT dataset."""
+    """Transform raw examples into SwiftSQL's unified multi-task SFT dataset.
+
+    When verify_executable=True, any example carrying executable_context is executed in an
+    isolated SQLite sandbox and discarded if its gold SQL fails at runtime (data hygiene).
+    """
     rng = random.Random(seed)
     weights = dialect_weights or {"postgresql": 0.40, "mysql": 0.35, "sqlite": 0.25}
     records: List[Dict[str, Any]] = []
@@ -205,11 +210,23 @@ def build_sft_records(
         if not src_check.valid:
             continue
 
+        # Data hygiene: verify gold SQL actually runs in SQLite when seed rows exist
+        if verify_executable and ex.executable_context:
+            exec_res = execute_sqlite_sandbox(ex.executable_context, src_check.normalized_sql)
+            if not exec_res.success:
+                continue
+
         target_dialect = pick_dialect(rng, weights)
         transpiled = transpile_sql(ex.sql, source_dialect="sqlite", target_dialect=target_dialect)
         if not transpiled:
             target_dialect = "sqlite"
             transpiled = src_check.normalized_sql
+        elif verify_executable and ex.executable_context and target_dialect != "sqlite":
+            # Verify round-trip dialect consistency back to SQLite so eval isn't distorted
+            rt = transpile_sql(transpiled, source_dialect=target_dialect, target_dialect="sqlite")
+            if not rt or not execute_sqlite_sandbox(ex.executable_context, rt).success:
+                target_dialect = "sqlite"
+                transpiled = src_check.normalized_sql
 
         level, needs_plan, tables = analyze_complexity(transpiled, dialect=target_dialect)
         plan = compress_plan(ex.explanation, tables, transpiled) if needs_plan else ""

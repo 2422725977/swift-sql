@@ -83,17 +83,17 @@ def score_candidate(
     # 1. Execution correctness (+100)
     # 2. Dialect syntax & read-only validity (+25)
     # 3. Strict JSON format (+10)
-    # 4. Auto-Think conciseness bonus: penalize overly verbose outputs (-0.03 per char)
+    # 4. Gentle Auto-Think conciseness tie-breaker (-0.01 per char) so correctness always dominates
     score = 0.0
     score += 100.0 if exec_correct else 0.0
     score += 25.0 if syntax_valid else -30.0
     score += 10.0 if json_valid else -20.0
 
-    # Extra penalty if a simple query emitted a long plan
-    if meta.get("complexity") == "simple" and parsed["plan"]:
-        score -= 15.0
+    # Mild penalty if a simple/medium query unnecessarily emitted a non-empty plan
+    if meta.get("complexity") in ("simple", "medium") and parsed["plan"]:
+        score -= 10.0
 
-    score -= 0.03 * length_chars
+    score -= 0.01 * length_chars
     return ScoredCandidate(
         raw_text=candidate_text,
         score=score,
@@ -107,12 +107,12 @@ def score_candidate(
 def build_dpo_pair(
     record: Dict[str, Any],
     candidates: Sequence[str],
-    min_score_gap: float = 15.0,
+    min_score_gap: float = 20.0,
 ) -> Optional[Dict[str, Any]]:
     """Build a (prompt, chosen, rejected) DPO pair from N sampled candidates.
 
-    Also falls back to gold assistant output as `chosen` if all sampled candidates failed,
-    turning model failure modes directly into high-signal preference pairs.
+    Strictly enforces that `chosen` is valid JSON, valid target-dialect syntax, and
+    execution-correct (or exact refusal), preventing noisy DPO preference drift.
     """
     if not candidates:
         return None
@@ -127,8 +127,14 @@ def build_dpo_pair(
     prompt_messages = [m for m in messages if m["role"] != "assistant"]
     gold_assistant = next((m["content"] for m in messages if m["role"] == "assistant"), None)
 
-    # Case 1: Model generated at least one execution-correct answer AND at least one worse/verbose/wrong answer
-    if best.exec_correct and (best.score - worst.score) >= min_score_gap and best.raw_text != worst.raw_text:
+    # Case 1: Model generated a clean, valid, execution-correct answer AND a clearly worse answer
+    if (
+        best.exec_correct
+        and best.syntax_valid
+        and best.json_valid
+        and (best.score - worst.score) >= min_score_gap
+        and best.raw_text != worst.raw_text
+    ):
         return {
             "prompt": prompt_messages,
             "chosen": [{"role": "assistant", "content": best.raw_text}],
@@ -148,7 +154,7 @@ def build_dpo_pair(
             "rejected": [{"role": "assistant", "content": worst.raw_text}],
             "meta": {
                 "pair_source": "gold_vs_failure",
-                "chosen_score": 130.0,
+                "chosen_score": 135.0,
                 "rejected_score": round(worst.score, 2),
             },
         }

@@ -1,8 +1,9 @@
-# SwiftSQL Central Configuration
+# SwiftSQL Central Configuration (opt2: Fast Auto-Think + Sandbox Hygiene + RPO-Stabilized DPO)
 # Optimized for Colab Pro (L4 24GB / A100 40GB) training -> Apple Silicon 16GB deployment
 
 project:
   name: "swiftsql-3b"
+  run_tag: "opt2"         # Isolates Drive outputs under MyDrive/swift-sql/opt2/ without overwriting v1
   seed: 42
 
 model:
@@ -26,15 +27,16 @@ lora:
     - down_proj
 
 data:
-  # Target sample counts for V1 SFT (total ~8,500 high-signal samples)
-  gretel_train_samples: 4500
+  # Slightly larger Gretel pull because SQLite sandbox pre-filtering discards noisy synthetic SQL
+  gretel_train_samples: 6000
   sqale_train_samples: 2000
   chinese_train_samples: 2000
-  eval_samples: 400
+  eval_samples: 450
   max_schema_chars: 4000
+  verify_executable: true
   # Multi-task mix ratios applied on top of base generation pool
   repair_ratio: 0.20      # 20% SQL error self-repair tasks
-  refusal_ratio: 0.10     # 10% unanswerable / missing-column refusal tasks
+  refusal_ratio: 0.12     # 12% unanswerable / missing-column refusal tasks
   # Multi-dialect distribution
   dialect_weights:
     postgresql: 0.40
@@ -45,7 +47,7 @@ sft:
   num_train_epochs: 3
   per_device_train_batch_size: 4
   gradient_accumulation_steps: 4
-  learning_rate: 2.0e-4
+  learning_rate: 1.5e-4
   warmup_ratio: 0.05
   lr_scheduler_type: "cosine"
   logging_steps: 10
@@ -54,16 +56,18 @@ sft:
   bf16: true
 
 dpo:
-  # V2 Iterative Execution-Guided DPO (multi-round on-policy hard negatives + batched inference)
+  # RPO-stabilized Iterative Execution-Guided DPO (prevents syntax/refusal collapse!)
   rounds: 2
   eval_samples: 300
   eval_batch_size: 16
   sample_batch_size: 8
   num_prompts_per_round: 1200
   candidates_per_round: [4, 6]
-  round_learning_rates: [5.0e-5, 2.5e-5]
-  round_betas: [0.10, 0.15]
-  num_train_epochs: 2
+  round_learning_rates: [1.0e-5, 5.0e-6]
+  round_betas: [0.20, 0.25]
+  rpo_alpha: 0.5          # Anchors DPO with SFT NLL loss on chosen outputs to prevent collapse
+  max_grad_norm: 0.5
+  num_train_epochs: 1     # 1 epoch per round on fresh on-policy pairs prevents overfitting
   per_device_train_batch_size: 2
   gradient_accumulation_steps: 8
 
