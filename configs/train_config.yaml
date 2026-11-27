@@ -2,7 +2,7 @@
 # Optimized for Colab Pro (L4 24GB / A100 40GB) training -> Apple Silicon 16GB deployment
 
 project:
-  name: "swiftsql-3b-v1"
+  name: "swiftsql-3b"
   seed: 42
 
 model:
@@ -42,7 +42,7 @@ data:
     sqlite: 0.25
 
 sft:
-  num_train_epochs: 2
+  num_train_epochs: 3
   per_device_train_batch_size: 4
   gradient_accumulation_steps: 4
   learning_rate: 2.0e-4
@@ -54,12 +54,16 @@ sft:
   bf16: true
 
 dpo:
-  # V2 Execution-Guided DPO: rewards correct + concise SQL, penalizes error/wrong/verbose
-  num_prompts: 1500
-  candidates_per_prompt: 4
-  beta: 0.1
-  learning_rate: 5.0e-5
-  num_train_epochs: 1
+  # V2 Iterative Execution-Guided DPO (multi-round on-policy hard negatives + batched inference)
+  rounds: 2
+  eval_samples: 300
+  eval_batch_size: 16
+  sample_batch_size: 8
+  num_prompts_per_round: 1200
+  candidates_per_round: [4, 6]
+  round_learning_rates: [5.0e-5, 2.5e-5]
+  round_betas: [0.10, 0.15]
+  num_train_epochs: 2
   per_device_train_batch_size: 2
   gradient_accumulation_steps: 8
 
